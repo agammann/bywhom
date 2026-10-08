@@ -43,7 +43,7 @@ The extension runs locally in Chrome 116 or later, though only isolated Chromium
 
 No npm installation is needed to run the extension. To reproduce development checks from the repository root on a normal development machine: `npm install`, `npm test`, `npx playwright install chromium`, then `npm run test:browser`. These commands are for testing, not a requirement for loading the unpacked extension. The browser harness uses an isolated profile; no normal-profile installation was part of the build.
 
-The local event pack calls for a short demo video and public GitHub repository for submission. Publication of the prepared source and included artwork in a public `bywhom` repository under MIT is authorized; a remote URL and commit are not yet verified in this spec. A demo video is not recorded here. Chrome Web Store publication is outside this proof of concept. This spec does not certify eligibility.
+The local event pack calls for a short demo video and public GitHub repository for submission. The prepared source and included artwork are now published under MIT at [agammann/bywhom](https://github.com/agammann/bywhom); the initial source commit was verified publicly on 2026-10-08. A demo video is not recorded here. Chrome Web Store publication is outside this proof of concept. This spec does not certify eligibility.
 
 ## Look and feel
 
@@ -107,7 +107,7 @@ bywhom/                        # Repository root; load this folder as the extens
 +-- tests/                    # Unit, capture, panel, and actual-action harnesses
 ```
 
-This is the prepared repository arrangement, not a file tree approved before implementation or proof of a remote publication.
+This is the repository arrangement, not a file tree approved before implementation.
 
 ## Verification and realistic failure modes
 
@@ -128,4 +128,4 @@ This is the prepared repository arrangement, not a file tree approved before imp
 - **Verified learner direction before coding:** Chrome; an animated character; highlighted article text or explicit paste; a quick, efficient, fresh-project plan. The assistant's pre-code plan named selection capture, separate evidence cards, paste/missing/conflict handling, one original reduced-motion-friendly detective, then packaging and demo. See [planning-history.md](planning-history.md). The learner's agreement to proceed was not a saved event-pack approval of this technical spec.
 - **Clarified ambiguity:** The pre-code discussion distinguished selected text plus the permitted current page's attribution from pasted text alone. Paste with no explicit attribution may leave writer or origin unknown; the observed parser follows that rule. See `prd.md > Selection and paste`.
 - **Current implementation choices:** MV3 side panel, `activeTab`/`scripting`, plain local JavaScript, exact scan bounds, CSS motion, and Playwright harnesses. They are recorded here for review, not retroactively assigned to the learner.
-- **Still open for a formal pack checkpoint:** Learner review of this draft and its companion scope/PRD; any required learner profile and build-checklist approvals. No stage is marked approved here. Public repository creation under MIT, including the detective artwork, is authorized but its remote commit is not yet verified in this document. Recording, registration/terms, and submission remain separate decisions and evidence; see [RELEASE-READINESS.md](../RELEASE-READINESS.md).
+- **Still open for a formal pack checkpoint:** Learner review of this draft and its companion scope/PRD; any required learner profile and build-checklist approvals. No stage is marked approved here. The public MIT repository is verified; recording, registration/terms, and submission remain separate decisions and evidence. See [RELEASE-READINESS.md](../RELEASE-READINESS.md).
