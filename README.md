@@ -51,7 +51,7 @@ The page-capture scenarios are listed in [tests/capture-fixtures.md](tests/captu
 
 ## License and image provenance
 
-The repository's [MIT license](LICENSE) covers its code, documentation, tests, and bundled `detective.png` to the extent the contributors hold rights in them. The detective image was generated with ChatGPT image generation and retains C2PA Content Credentials. [LICENSE-DECISION.md](LICENSE-DECISION.md) records the learner's explicit choice to publish the prepared source and artwork under MIT. Playwright is a separate developer dependency with its own license.
+The repository's [MIT license](LICENSE) covers its code, documentation, tests, and bundled `detective.png` to the extent the contributors hold rights in them. [LICENSE-DECISION.md](LICENSE-DECISION.md) records the decision to publish the source and artwork under MIT. Playwright is a separate developer dependency with its own license.
 
 ## Project status
 
