@@ -1,0 +1,27 @@
+# Page capture fixture notes
+
+`capture.js` is a single injected expression. Run it with `chrome.scripting.executeScript({ target: { tabId }, files: ["capture.js"] })` only after the user invokes the toolbar action. The value is `injectionResults[0].result`. These fixtures exercise capture, not the later attribution parser: a captured string is evidence to evaluate, not an automatic credit decision.
+
+| Page fixture | Expected capture | Expected attribution boundary |
+| --- | --- | --- |
+| Article with `<p class="byline">WUSF \| By Darius Tahir - KFF Health News</p>` | One `visibleLines` entry with that unchanged text and `where` beginning `visible text:`. | The line may support Darius Tahir as credited writer and WUSF as visible hosting publication; it alone does not prove a KFF origin. |
+| Synthetic article with `By Avery Sample` and, at its foot, `This piece was republished from Example Review under a Creative Commons licence.` | Both lines captured with visible locations, including the footer line after long body text. | Example Review is an explicit credited origin; a host cannot be invented from the URL. |
+| Article text lines `Publication: Harbor Daily`, `Hosting publication: Harbor Daily`, and `Originating publication: The Conversation` with no special byline selectors | Each complete line appears in `visibleLines` with its article line number. | The parser must keep hosting and originating publications separate. |
+| `By Darius Tahir` then `Illustration by Oona Zenda` | The byline is captured; the illustration line might appear if a credit element is marked up. | The illustrator must not become a writer. |
+| Bare person card and `Page Editor: Beth Ridgeway` on a NASA release | A semantic author card may be captured as visible text; otherwise no writer candidate. | Bare names and page editors must stay unknown as article writers. |
+| Hidden byline (`display:none`, `hidden`, `aria-hidden="true"`, zero-sized box) | Hidden line absent from `visibleLines`. | Hidden text is not visible credit evidence. |
+| Main story article with an `<h1>` plus a separate related-story `<article>` and sidebar byline | Only the main story byline is captured from the primary article region. | Prefer an unknown claim to an unrelated card's credit. |
+| Current article containing `.article-pre-footer__post-author` spans for four related stories | The current `By Darius Tahir` line and a separate republication footer line remain; none of the related-card bylines enter `visibleLines`. | The source article must not show a false multiple-writer conflict from teaser cards. Run `capture-regression.cjs` against `fixtures/related-cards.html`. |
+| `<input value="By Fake Name">`, `<textarea>By Fake Name</textarea>`, or contenteditable selection | Form/editor values absent from `visibleLines`; a form/editor selection is ignored. | Never treat unrelated form data as article text. |
+| Visible selected article sentence | `selection` holds the selected text before page traversal. | Selection can use current-page attribution only under the extension's explicit action and presentation rules. |
+| `<meta name="author" content="Ada Example">` and `<meta property="og:site_name" content="Example Gazette">` | Entries in `metadataAuthors` and `metadataSiteNames`, each with the exact content and `metadata:` source label. | Metadata is a labeled publisher claim, not an independently verified visible byline. |
+| `<meta property="article:author" content="https://example.test/profile">` | URL value omitted from `metadataAuthors`. | A profile URL alone is not an author name. |
+| JSON-LD `NewsArticle` with `author: {"@type":"Person","name":"Ada Example"}` and `publisher: {"@type":"Organization","name":"Example Gazette"}` | Corresponding metadata entries with `JSON-LD` source labels. | Keep visible and structured credit claims distinct; show contradictions. |
+| JSON-LD related `NewsArticle` with an explicit `url` on another page | Its author omitted from `metadataAuthors`. | A related article must not supply the current page's writer. |
+| Invalid JSON-LD, large JSON-LD, or an unrelated JSON-LD `Person` | No exception; unrelated names omitted. | No fallback guessing. |
+
+Capture bounds: at most 60,000 characters across returned text fields, 30,000 selected characters, 100 visible lines of at most 800 characters each, 24 author and 24 site metadata claims, and 20 JSON-LD scripts of at most 500,000 characters parsed per script. Long lines are omitted rather than silently presented as exact evidence. Content that exists only inside a canvas, image, cross-origin frame, or shadow root is outside this first main-frame capture.
+
+When no article or main region exists, capture scans only the first 120 visible body lines and does not use body-wide byline class selectors. This conservative fallback can miss a credit buried later on an unstructured page; it avoids treating a related-story card as the current story's byline.
+
+For JSON-LD Article objects with an explicit URL-like page reference, capture accepts only a reference with the current origin and path. A canonical URL on another host may therefore be omitted rather than guessed to be the current page. JSON-LD without a page reference remains a labeled claim and can conflict with visible credit.

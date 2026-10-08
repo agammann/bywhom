@@ -1,0 +1,35 @@
+# Local dependencies and generated test output
+node_modules/
+test-results/
+playwright-report/
+artifacts/
+dist/
+out/
+output/
+coverage/
+tmp/
+temp/
+.playwright-browsers-bywhom/
+*.log
+*.tmp
+*.trace
+*.zip
+.bywhom-*/
+
+# Local secrets and credentials; a secret-free example is safe to track
+.env
+.env.*
+!.env.example
+.npmrc
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+*secrets*.json
+*token*.json
+
+# Event-pack learner context stays local
+/devpost/learner-profile.md
+/learner-profile.md

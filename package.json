@@ -1,0 +1,20 @@
+{
+  "name": "bywhom-extension",
+  "version": "0.1.1",
+  "license": "MIT",
+  "private": true,
+  "description": "Local development checks for the ByWhom Chrome extension",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node tests/credit-engine.test.mjs && node tests/background.test.cjs && node tests/manifest.test.mjs",
+    "test:capture": "node tests/capture-regression.cjs",
+    "test:panel": "node tests/browser-smoke.cjs",
+    "test:action": "node tests/action-gesture.cjs",
+    "test:browser": "npm run test:capture && npm run test:panel && npm run test:action"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

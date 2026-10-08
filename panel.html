@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ByWhom · Follow the credit</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body data-phase="idle">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand" aria-label="ByWhom">by<span>whom</span><i>?</i></div>
+      <span class="local-note">LOCAL CREDIT READER</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="intro-title">
+        <div class="intro-copy">
+          <p class="eyebrow">THE CREDIT DETECTIVE</p>
+          <h1 id="intro-title">People behind the story.</h1>
+          <p>Click the toolbar button on an article to read its visible credits and labeled metadata.</p>
+          <button id="motion-toggle" class="quiet-button" type="button" aria-pressed="false">Pause animation</button>
+        </div>
+        <div class="mascot-wrap"><img class="mascot" src="detective.png" width="120" height="120" alt="A blue detective with a magnifying glass"><span class="mascot-shadow" aria-hidden="true"></span></div>
+      </section>
+
+      <section class="page-context" aria-labelledby="page-context-title">
+        <div class="context-heading"><h2 id="page-context-title">Current page</h2><span id="case-tag">READY</span></div>
+        <p id="read-status" class="read-status" role="status" aria-live="polite">Click the toolbar button to read a page, or paste credit lines below.</p>
+        <p id="page-url" class="page-url" hidden></p>
+        <div id="selection-block" class="selection-block" hidden><strong>Selected text</strong><p id="selection-preview"></p></div>
+      </section>
+
+      <section class="findings" aria-labelledby="findings-title">
+        <div class="section-heading"><p class="eyebrow">THE CASE FILE</p><h2 id="findings-title" tabindex="-1">Follow the credit</h2></div>
+        <p id="result-summary" class="summary" role="status" aria-live="polite">Three questions. Only answers the evidence supports.</p>
+        <div id="cards"></div>
+        <div class="trail"><h3>The source trail</h3><div id="trail-content">Credit roles will appear here.</div></div>
+        <p class="scope"><strong>Credits are clues, not verification.</strong> A visible line or metadata field can state a claim. ByWhom does not verify identity, ownership, accuracy, or the earliest source. Missing and conflicting evidence stays visible.</p>
+      </section>
+
+      <section id="paste-section" class="paste-section" aria-labelledby="paste-title">
+        <div class="paste-heading"><div><p class="eyebrow">YOUR TEXT BUBBLE</p><h2 id="paste-title">Paste a credit line</h2></div><span id="character-count">0 / 60,000</span></div>
+        <p class="hint">Use this when a page cannot be read, or to inspect text you provide directly. A pasted URL never supplies a missing credit.</p>
+        <form id="paste-form" novalidate>
+          <label for="article-text">Article text and credits</label>
+          <textarea id="article-text" maxlength="60000" placeholder="Paste the byline and publication credits here…" spellcheck="false"></textarea>
+          <label for="context-url">Page URL <span>(optional context only)</span></label>
+          <input id="context-url" type="url" placeholder="https://…" autocomplete="off">
+          <div class="actions"><button class="primary" type="submit">Follow the credits</button><button id="clear-all" class="quiet-button" type="button">Clear</button></div>
+          <p id="paste-error" class="error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <footer>BYWHOM / EVIDENCE BEFORE ASSUMPTIONS<br>Runs locally on an explicit click. No accounts or paid APIs.</footer>
+  </div>
+
+  <dialog id="evidence-dialog" aria-labelledby="evidence-title">
+    <div class="dialog-top"><span class="eyebrow">STRAIGHT FROM THE SOURCE</span><button id="close-evidence" type="button" aria-label="Close evidence">✕</button></div>
+    <h2 id="evidence-title">Evidence</h2>
+    <div id="evidence-content"></div>
+    <p class="dialog-note">These are copied lines or metadata values, not independently verified claims.</p>
+  </dialog>
+  <script type="module" src="panel.mjs"></script>
+</body>
+</html>

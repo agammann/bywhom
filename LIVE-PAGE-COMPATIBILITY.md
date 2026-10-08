@@ -1,0 +1,23 @@
+# Public article compatibility check
+
+Checked on **2026-10-08** with the unpacked ByWhom extension in an isolated Chromium profile. The harness visited three public articles, invoked the real Manifest V3 action through browser-level CDP `Extensions.triggerAction`, inspected the worker's one-shot capture, and analyzed it with the bundled local credit engine. This exercises Chrome's action and `activeTab` path programmatically; it does not substitute for a person's toolbar click or prove that future versions of these pages retain the same markup.
+
+All three pages returned HTTP 200 and the extension reached `ready`. No private-site token, account, publisher bypass, paywall workaround, or web-wide origin search was used. Results come from the opened pages' visible text and metadata. Opening a second article for this check did not make it an automatically discovered origin of the first.
+
+| Opened article | Credited writer | Hosting publication | Credited originating publication |
+| --- | --- | --- | --- |
+| [WUSF: “Your new therapist: Chatty, leaky and hardly human”](https://www.wusf.org/health-news-florida/2026-04-19/your-new-therapist-chatty-leaky-and-hardly-human) | **Darius Tahir — explicit visible credit.** The visible line is `WUSF \| By Darius Tahir - KFF Health News`. JSON-LD also claims `Darius Tahir - KFF Health News`; the parser recognizes the newsroom suffix as an affiliation for the writer name while retaining the raw metadata evidence. | **WUSF — explicit visible credit**, also matched by `og:site_name` and JSON-LD publisher metadata. | **Unknown.** “KFF Health News” in the byline/metadata is not treated as an explicit originating-publication statement. |
+| [KFF Health News: “Your New Therapist: Chatty, Leaky, and Hardly Human”](https://kffhealthnews.org/mental-health/ai-chatbots-therapy-big-risks-few-regulations/) | **Conflicting claims.** Visible article text says `By Darius Tahir` and separately `Illustration by Oona Zenda`; `meta[name=author]` claims `Darius Tahir, Oona Zenda`. Both source labels and the unchanged metadata value remain available as evidence. Related-story card bylines are excluded from this result. | **KFF Health News — metadata claim only**, from `og:site_name`. | **Unknown.** No explicit originating-publication credit was captured. |
+| [University of South Carolina: “How explainable artificial intelligence can help humans innovate”](https://sc.edu/uofsc/posts/2021/01/conversation_artificial_intelligence.php) | **Forest Agostinelli — explicit visible credit** (`By Forest Agostinelli`), also matched by `meta[name=author]`. | **University of South Carolina — metadata claim only**, from `og:site_name`. | **The Conversation — explicit visible credit.** The article says it is republished from The Conversation under a Creative Commons license. |
+
+The WUSF test invoked the action a second time after selecting visible text on the article page. The returned `capture.selection` matched the selected text. That selection did not itself create a new author or origin claim.
+
+## Findings from the first run and fixes
+
+The first run falsely reported a WUSF writer conflict because it treated the JSON-LD string `Darius Tahir - KFF Health News` as a different writer from the visible `Darius Tahir`. It also imported bylines from unrelated KFF pre-footer story cards. The revised parser strips that WUSF newsroom suffix **for comparing the writer name** while preserving the exact metadata value, and the page reader excludes related cards. The KFF visible-versus-metadata disagreement remains because the publisher metadata lists the visibly credited illustrator as an author; ByWhom does not quietly choose one claim as authoritative.
+
+## Errors and limits
+
+There were **no observed extension-worker errors** in this run. WUSF emitted a page-script `SyntaxError: Unexpected token ':'`, and the South Carolina page logged a 404 resource error. Those diagnostics came from the publisher pages and did not prevent the extension from reaching `ready`; KFF had no recorded runtime error. The live-page harness recorded captures and local analysis, rather than asserting every side-panel card visually on these sites. Panel presentation and keyboard behavior were checked separately on local fixtures, as described in [BUILD-NOTES.md](BUILD-NOTES.md).
+
+This is a compatibility snapshot, not independent verification of writers, publishers, or earliest origins. A metadata field is a publisher-supplied claim. The extension makes no paid API call or background page collection, and it leaves missing or contradictory credit evidence visible instead of filling it with guesses.
