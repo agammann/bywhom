@@ -47,6 +47,23 @@ test('a single byline can name multiple people or an organization', () => {
   assert.deepEqual(names(organization.writer), ['The Associated Press']);
 });
 
+test('Reported by and Story by are writer credits in page text and paste', () => {
+  const captured = analyzeCapture({
+    visibleLines: [{text: 'Reported by: Maya Chen', where: 'Article byline', line: 3}],
+  });
+  assert.equal(captured.writer.status, 'credited');
+  assert.deepEqual(names(captured.writer), ['Maya Chen']);
+  assert.equal(captured.writer.evidence[0].line, 3);
+
+  const pasted = extractPasted('Story by Jordan Ellis');
+  assert.equal(pasted.writer.status, 'credited');
+  assert.deepEqual(names(pasted.writer), ['Jordan Ellis']);
+
+  const inline = extractPasted('Harbor Daily | Reported by Avery Sample');
+  assert.deepEqual(names(inline.writer), ['Avery Sample']);
+  assert.deepEqual(names(inline.host), ['Harbor Daily']);
+});
+
 test('different explicit writer and origin claims remain in conflict', () => {
   const result = extractPasted('By Maya Chen\nWritten by: Jordan Ellis\nOriginally published by: Civic Wire\nOriginally published by: Neighborhood Dispatch');
   assert.equal(result.writer.status, 'conflict');
@@ -59,14 +76,40 @@ test('metadata-only authors and site names are labeled metadata claims', () => {
   const result = analyzeCapture({
     url: 'https://example.org/a', title: 'A', visibleLines: [],
     metadataAuthors: [
-      {name: 'Jane Doe', evidence: '"author":{"name":"Jane Doe"}', where: 'JSON-LD NewsArticle.author'},
-      {name: 'Alex Kim', evidence: '"author":{"name":"Alex Kim"}', where: 'JSON-LD NewsArticle.author'},
+      {name: 'Jane Doe', evidence: '"author":{"name":"Jane Doe"}', where: 'JSON-LD NewsArticle.author', claimId: 'jsonld:1:1'},
+      {name: 'Alex Kim', evidence: '"author":{"name":"Alex Kim"}', where: 'JSON-LD NewsArticle.author', claimId: 'jsonld:1:1'},
     ],
     metadataSiteNames: [{name: 'Example Weekly', evidence: 'og:site_name="Example Weekly"', where: 'Open Graph site name'}],
   });
   assert.deepEqual([result.writer.status, result.host.status, result.origin.status], ['metadata', 'metadata', 'unknown']);
   assert.deepEqual(names(result.writer), ['Jane Doe', 'Alex Kim']);
   assert.equal(result.writer.evidence[0].source, 'metadata');
+});
+
+test('separate metadata author sources remain conflicting claims', () => {
+  const result = analyzeCapture({
+    metadataAuthors: [
+      {name: 'Maya Chen', evidence: 'Maya Chen', where: 'metadata: meta[name=author]', claimId: 'meta:1'},
+      {name: 'Jordan Ellis', evidence: 'Jordan Ellis', where: 'metadata: JSON-LD script 1 NewsArticle.author.name', claimId: 'jsonld:1:1'},
+    ],
+  });
+  assert.equal(result.writer.status, 'conflict');
+  assert.deepEqual(names(result.writer), ['Maya Chen', 'Jordan Ellis']);
+  assert.deepEqual(result.writer.evidence.map(item => item.where), [
+    'metadata: meta[name=author]', 'metadata: JSON-LD script 1 NewsArticle.author.name',
+  ]);
+
+  const legacy = analyzeCapture({metadataAuthors: [
+    {name: 'Maya Chen', where: 'metadata: meta[name=author]'},
+    {name: 'Jordan Ellis', where: 'metadata: JSON-LD script 1 NewsArticle.author.name'},
+  ]});
+  assert.equal(legacy.writer.status, 'conflict');
+
+  const repeatedTag = analyzeCapture({metadataAuthors: [
+    {name: 'Maya Chen', where: 'metadata: meta[name=author]', claimId: 'meta:1'},
+    {name: 'Jordan Ellis', where: 'metadata: meta[name=author]', claimId: 'meta:2'},
+  ]});
+  assert.equal(repeatedTag.writer.status, 'conflict');
 });
 
 test('visible versus metadata disagreements are shown instead of resolved', () => {

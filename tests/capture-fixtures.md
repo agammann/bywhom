@@ -1,10 +1,11 @@
 # Page capture fixture notes
 
-`capture.js` is a single injected expression. Run it with `chrome.scripting.executeScript({ target: { tabId }, files: ["capture.js"] })` only after the user invokes the toolbar action. The value is `injectionResults[0].result`. These fixtures exercise capture, not the later attribution parser: a captured string is evidence to evaluate, not an automatic credit decision.
+`capture.js` is a single injected expression. Run it with `chrome.scripting.executeScript({ target: { tabId }, files: ["capture.js"] })` only after the user invokes the toolbar action. The value is `injectionResults[0].result`. A captured string is evidence to evaluate, not an automatic credit decision. `capture-regression.cjs` also passes selected captures to the attribution parser.
 
 | Page fixture | Expected capture | Expected attribution boundary |
 | --- | --- | --- |
 | Article with `<p class="byline">WUSF \| By Darius Tahir - KFF Health News</p>` | One `visibleLines` entry with that unchanged text and `where` beginning `visible text:`. | The line may support Darius Tahir as credited writer and WUSF as visible hosting publication; it alone does not prove a KFF origin. |
+| Primary article paragraphs `Harbor Daily \| Reported by: Maya Chen` and `Story by Jordan Ellis` | Each line is captured from its own article page without a special byline class. | The parser credits the named writer; the first line also credits Harbor Daily as host. |
 | Synthetic article with `By Avery Sample` and, at its foot, `This piece was republished from Example Review under a Creative Commons licence.` | Both lines captured with visible locations, including the footer line after long body text. | Example Review is an explicit credited origin; a host cannot be invented from the URL. |
 | Article text lines `Publication: Harbor Daily`, `Hosting publication: Harbor Daily`, and `Originating publication: The Conversation` with no special byline selectors | Each complete line appears in `visibleLines` with its article line number. | The parser must keep hosting and originating publications separate. |
 | `By Darius Tahir` then `Illustration by Oona Zenda` | The byline is captured; the illustration line might appear if a credit element is marked up. | The illustrator must not become a writer. |
@@ -17,6 +18,7 @@
 | `<meta name="author" content="Ada Example">` and `<meta property="og:site_name" content="Example Gazette">` | Entries in `metadataAuthors` and `metadataSiteNames`, each with the exact content and `metadata:` source label. | Metadata is a labeled publisher claim, not an independently verified visible byline. |
 | `<meta property="article:author" content="https://example.test/profile">` | URL value omitted from `metadataAuthors`. | A profile URL alone is not an author name. |
 | JSON-LD `NewsArticle` with `author: {"@type":"Person","name":"Ada Example"}` and `publisher: {"@type":"Organization","name":"Example Gazette"}` | Corresponding metadata entries with `JSON-LD` source labels. | Keep visible and structured credit claims distinct; show contradictions. |
+| `<meta name="author" content="Maya Chen">` plus JSON-LD `NewsArticle.author` array naming Jordan Ellis and Alex Kim | The meta entry has a different `claimId` from the two JSON-LD entries; both array members share one `claimId`. | The meta and JSON-LD writer claims conflict, while the JSON-LD array remains one coauthor claim. |
 | JSON-LD related `NewsArticle` with an explicit `url` on another page | Its author omitted from `metadataAuthors`. | A related article must not supply the current page's writer. |
 | Invalid JSON-LD, large JSON-LD, or an unrelated JSON-LD `Person` | No exception; unrelated names omitted. | No fallback guessing. |
 

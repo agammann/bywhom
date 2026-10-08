@@ -48,29 +48,32 @@
   };
 
   const metadataKeys = new Set();
-  function addMetadata(bucket, nameValue, evidenceValue, whereValue) {
+  function addMetadata(bucket, nameValue, evidenceValue, whereValue, claimIdValue) {
     if (bucket.length >= MAX_METADATA_ITEMS) return;
     const name = clean(nameValue);
     const evidence = clean(evidenceValue);
     const where = clean(whereValue);
-    if (!name || !evidence || !where || name.length > 300 || evidence.length > 300) return;
+    const claimId = clean(claimIdValue);
+    if (!name || !evidence || !where || !claimId || name.length > 300 || evidence.length > 300) return;
     if (looksLikeUrl(name)) return;
-    const key = `${bucket === result.metadataAuthors ? "author" : "site"}\u0000${name}\u0000${where}`;
-    if (metadataKeys.has(key) || !takeBudget(name, evidence, where)) return;
+    const key = `${bucket === result.metadataAuthors ? "author" : "site"}\u0000${name}\u0000${where}\u0000${claimId}`;
+    if (metadataKeys.has(key) || !takeBudget(name, evidence, where, claimId)) return;
     metadataKeys.add(key);
-    bucket.push({ name, evidence, where });
+    bucket.push({ name, evidence, where, claimId });
   }
 
   // A meta value is a publisher-supplied claim, not a verified author credit.
   try {
+    let metaIndex = 0;
     for (const meta of document.querySelectorAll("meta[name], meta[property]")) {
+      const claimId = `meta:${++metaIndex}`;
       const key = clean(meta.getAttribute("name") || meta.getAttribute("property")).toLowerCase();
       const value = clean(meta.getAttribute("content"));
       if (!value) continue;
       if (key === "author" || key === "article:author") {
-        addMetadata(result.metadataAuthors, value, value, `metadata: meta[${meta.hasAttribute("name") ? "name" : "property"}=${key}]`);
+        addMetadata(result.metadataAuthors, value, value, `metadata: meta[${meta.hasAttribute("name") ? "name" : "property"}=${key}]`, claimId);
       } else if (key === "og:site_name" || key === "application-name") {
-        addMetadata(result.metadataSiteNames, value, value, `metadata: meta[${meta.hasAttribute("name") ? "name" : "property"}=${key}]`);
+        addMetadata(result.metadataSiteNames, value, value, `metadata: meta[${meta.hasAttribute("name") ? "name" : "property"}=${key}]`, claimId);
       }
     }
   } catch (_) {
@@ -84,14 +87,14 @@
   };
   const nonUrlName = (value) => typeof value === "string" && !looksLikeUrl(value);
 
-  function addStructuredNames(target, value, where) {
+  function addStructuredNames(target, value, where, claimId) {
     const entries = Array.isArray(value) ? value : [value];
     for (const entry of entries.slice(0, MAX_METADATA_ITEMS)) {
       if (nonUrlName(entry)) {
-        addMetadata(target, entry, entry, where);
+        addMetadata(target, entry, entry, where, claimId);
       } else if (entry && typeof entry === "object" && !Array.isArray(entry)) {
         const name = entry.name;
-        if (nonUrlName(name)) addMetadata(target, name, name, `${where}.name`);
+        if (nonUrlName(name)) addMetadata(target, name, name, `${where}.name`, claimId);
       }
     }
   }
@@ -121,8 +124,9 @@
       const type = Array.isArray(node["@type"]) ? node["@type"].find(isArticleType) : node["@type"];
       const label = typeof type === "string" ? type.split(/[/#]/).pop() : "Article";
       const where = `metadata: JSON-LD script ${scriptNumber} ${label}`;
-      addStructuredNames(result.metadataAuthors, node.author, `${where}.author`);
-      addStructuredNames(result.metadataSiteNames, node.publisher, `${where}.publisher`);
+      const claimId = `jsonld:${scriptNumber}:${seen.count}`;
+      addStructuredNames(result.metadataAuthors, node.author, `${where}.author`, claimId);
+      addStructuredNames(result.metadataSiteNames, node.publisher, `${where}.publisher`, claimId);
     }
     // Search only schema graph/main-entry containers. Walking arbitrary
     // properties can accidentally import related articles' credit claims.
@@ -201,7 +205,7 @@
     result.visibleLines.push({ text, where, line: lineNumber });
   }
 
-  const creditLine = /(?:^|\|\s*)(?:by\s+|written\s+by\s+|reported\s+by\s+|story\s+by\s+)|^\s*(?:(?:hosting|originating)\s+)?publication\s*:\s*\S|^\s*(?:publisher|source publication)\s*:\s*\S|\b(?:originally|first|previously)\s+published\b|\b(?:republished|reprinted|syndicated)\b|\b(?:published|distributed|provided)\s+by\b|\bcourtesy of\b|^\s*source\s*:/i;
+  const creditLine = /(?:^|\|\s*)(?:by|written by|reported by|story by)\s*:?\s+|^\s*(?:(?:hosting|originating)\s+)?publication\s*:\s*\S|^\s*(?:publisher|source publication)\s*:\s*\S|\b(?:originally|first|previously)\s+published\b|\b(?:republished|reprinted|syndicated)\b|\b(?:published|distributed|provided)\s+by\b|\bcourtesy of\b|^\s*source\s*:/i;
   const explicitSelectors = [
     "[rel~=author]", "[itemprop=author]", "[class*=byline i]", "[id*=byline i]",
     "[class*=author i]", "[id*=author i]", "[class*=republish i]",

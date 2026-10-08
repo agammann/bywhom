@@ -99,7 +99,7 @@ function parseLine(claims, raw, location, source) {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > MAX_LINE_LENGTH) return;
   const line = raw.trim();
 
-  const inline = line.match(/^([^|<>.!?]{1,80}?)\s*\|\s*By\s+(.+)$/i);
+  const inline = line.match(/^([^|<>.!?]{1,80}?)\s*\|\s*(?:By|Written by|Reported by|Story by)\s*:?[ \t]+(.+)$/i);
   if (inline) {
     addClaim(claims, 'host', inline[1], raw, location, source);
     addClaim(claims, 'writer', inline[2], raw, location, source);
@@ -113,7 +113,7 @@ function parseLine(claims, raw, location, source) {
   }
 
   const patterns = [
-    ['writer', /^(?:by|written by|author)\s*:?\s+(.+)$/i],
+    ['writer', /^(?:by|written by|reported by|story by|author)\s*:?\s+(.+)$/i],
     ['host', /^(?:publication|published by|hosting publication)\s*:\s*(.+)$/i],
     ['origin', /^(?:(?:this (?:article|story|piece) (?:was|is) )?originally published (?:by|in|on)|originating publication|republished (?:from|courtesy of))\s*:?\s+(.+)$/i],
   ];
@@ -152,21 +152,28 @@ function emptyClaims() {
 
 function addMetadata(claims, field, entries) {
   if (!Array.isArray(entries)) return;
-  const records = [];
+  const writerGroups = new Map();
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
     const names = field === 'writer' ? metadataWriterNames(entry.name, claims.writer) : [cleanName(entry.name)];
     if (!names.length || names.some(name => !name)) continue;
     const evidence = typeof entry.evidence === 'string' && entry.evidence ? entry.evidence : entry.name;
     const where = typeof entry.where === 'string' && entry.where ? entry.where : 'Article metadata';
-    records.push(...names.map(name => makeRecord(name, evidence, {where}, 'metadata')));
+    const records = names.map(name => makeRecord(name, evidence, {where}, 'metadata'));
+    if (field === 'writer') {
+      // Authors in one structured array share a claim ID. Independent meta
+      // tags or JSON-LD articles must not become an invented coauthor list.
+      const claimId = typeof entry.claimId === 'string' && entry.claimId.length > 0 && entry.claimId.length <= 100
+        ? entry.claimId : Symbol();
+      if (!writerGroups.has(claimId)) writerGroups.set(claimId, {names: [], evidence: [], source: 'metadata'});
+      const group = writerGroups.get(claimId);
+      group.names.push(...records.map(record => record.name));
+      group.evidence.push(...records);
+    } else {
+      for (const record of records) claims.host.push({names: [record.name], evidence: [record], source: 'metadata'});
+    }
   }
-  if (field === 'writer') {
-    // A metadata author array commonly lists coauthors; it is one metadata claim.
-    if (records.length) claims.writer.push({names: records.map(record => record.name), evidence: records, source: 'metadata'});
-  } else {
-    for (const record of records) claims.host.push({names: [record.name], evidence: [record], source: 'metadata'});
-  }
+  if (field === 'writer') claims.writer.push(...writerGroups.values());
 }
 
 export function analyzeCapture(capture) {

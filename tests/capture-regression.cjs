@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 
 const root = path.resolve(__dirname, '..');
 const browserCache = path.resolve(root, '..', '.playwright-browsers-bywhom');
@@ -19,6 +20,7 @@ const capture = fs.readFileSync(path.join(root, 'capture.js'), 'utf8');
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'related-cards.html'), 'utf8');
 
 (async () => {
+  const { analyzeCapture } = await import(pathToFileURL(path.join(root, 'credit-engine.mjs')).href);
   const browser = await chromium.launch({
     channel: 'chromium', headless: true, chromiumSandbox: true,
     ...(process.env.BYWHOM_CHROMIUM_PATH ? { executablePath: process.env.BYWHOM_CHROMIUM_PATH } : {}),
@@ -35,7 +37,34 @@ const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'related-cards.
     for (const unrelated of ['Kate Ruder', 'Paula Span', 'Martha Bebinger', 'Arielle Zionts']) {
       assert(!lines.some((line) => line.includes(unrelated)), `related card imported: ${unrelated}`);
     }
-    process.stdout.write('capture related-card regression passed\n');
+
+    for (const [markup, writer, host] of [
+      ['<p>Harbor Daily | Reported by: Maya Chen</p>', 'Maya Chen', 'Harbor Daily'],
+      ['<p>Story by Jordan Ellis</p>', 'Jordan Ellis', null],
+    ]) {
+      await page.setContent(`<main><article><h1>Local story</h1>${markup}<p>Article body.</p></article></main>`);
+      const captured = await page.evaluate(capture);
+      assert(captured.visibleLines.some((item) => item.text === markup.replace(/<[^>]*>/g, '')),
+        `credit line missing from article markup: ${markup}`);
+      const result = analyzeCapture(captured);
+      assert.equal(result.writer.status, 'credited');
+      assert.deepEqual(result.writer.evidence.map((item) => item.name), [writer]);
+      if (host) assert.deepEqual(result.host.evidence.map((item) => item.name), [host]);
+    }
+
+    await page.setContent(`<!doctype html><html><head>
+      <meta name="author" content="Maya Chen">
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","author":[{"@type":"Person","name":"Jordan Ellis"},{"@type":"Person","name":"Alex Kim"}]}</script>
+      </head><body><main><article><h1>Local story</h1><p>Article body without a byline.</p></article></main></body></html>`);
+    const metadataCapture = await page.evaluate(capture);
+    assert.equal(metadataCapture.metadataAuthors.length, 3);
+    assert.notEqual(metadataCapture.metadataAuthors[0].claimId, metadataCapture.metadataAuthors[1].claimId);
+    assert.equal(metadataCapture.metadataAuthors[1].claimId, metadataCapture.metadataAuthors[2].claimId);
+    const metadataResult = analyzeCapture(metadataCapture);
+    assert.equal(metadataResult.writer.status, 'conflict');
+    assert.deepEqual(metadataResult.writer.evidence.map((item) => item.name), ['Maya Chen', 'Jordan Ellis', 'Alex Kim']);
+
+    process.stdout.write('capture related-card, labeled byline, and metadata-source regressions passed\n');
   } finally {
     await browser.close();
   }
