@@ -43,7 +43,7 @@ The extension runs locally in Chrome 116 or later, though only isolated Chromium
 
 No npm installation is needed to run the extension. To reproduce development checks from the repository root on a normal development machine: `npm install`, `npm test`, `npx playwright install chromium`, then `npm run test:browser`. These commands are for testing, not a requirement for loading the unpacked extension. The browser harness uses an isolated profile; no normal-profile installation was part of the build.
 
-The local event pack calls for a short demo video and public GitHub repository for submission. The prepared source and included artwork are now published under MIT at [agammann/bywhom](https://github.com/agammann/bywhom); the initial source commit was verified publicly on 2026-10-08. A demo video is not recorded here. Chrome Web Store publication is outside this proof of concept. This spec does not certify eligibility.
+The local event pack calls for a short demo video and public GitHub repository for submission. The prepared source and included artwork are published under MIT at [agammann/bywhom](https://github.com/agammann/bywhom); the initial source commit was verified publicly on 2026-10-08. A [1:09 public demo video](https://youtu.be/2dNrmiwtEYA) shows the actual toolbar action and side panel on labeled fictional local pages. Chrome Web Store publication is outside this proof of concept. This spec does not certify eligibility.
 
 ## Look and feel
 

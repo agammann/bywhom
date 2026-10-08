@@ -1,6 +1,6 @@
 # ByWhom demo runbook
 
-Prepared **2026-10-08 UTC** for a **target recording under three minutes**. This is a shot and verification plan for the actual extension. It is not submission copy, suggested narration, or a claim that the event form imposes a three-minute limit. Check the current form before recording.
+Prepared **2026-10-08 UTC** for a **target recording under three minutes**. This is the earlier shot and verification plan for the actual extension, not submission copy or suggested narration. The [completed 1:09 video](https://youtu.be/2dNrmiwtEYA) uses clearly labeled fictional local pages instead of the public article sequence below.
 
 ## Before recording
 
