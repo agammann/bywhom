@@ -42,14 +42,30 @@ function cleanName(value) {
   return name;
 }
 
-function writerNames(value) {
+function looksLikeBareByline(name) {
+  // "By" also starts ordinary prose. Without a more explicit writer label,
+  // accept only name-shaped words, initials and conventional name particles.
+  // Unicode letters/marks and uncased scripts are intentional; this is not an
+  // English-only or two-word-name rule. Uncertain text stays unknown.
+  const words = name.normalize('NFC').split(/\s+/);
+  const particle = /^(?:al|ap|ben|bin|bint|da|de|del|della|den|der|di|dos|du|el|ibn|la|le|van|von|zu|zur|of|the)$/;
+  const nameWord = /^(?:[\p{Lu}\p{Lt}\p{Lo}][\p{L}\p{M}'’\-‐‑]*\.?|(?:[\p{Lu}\p{Lt}]\.)+|[dlo]['’][\p{Lu}\p{Lt}][\p{L}\p{M}]*|(?:al|el)-[\p{Lu}\p{Lt}][\p{L}\p{M}]*)$/u;
+  // A short time expression can have exactly the same capitalization as a
+  // name. It is not sufficient evidence of authorship on its own.
+  if (/^(?:(?:this|next|last)\s+)?(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|tomorrow|yesterday|today|tonight|noon|midnight|dawn|dusk)(?:\s+(?:morning|afternoon|evening|night))?$/i.test(name)) return false;
+  return words.some(word => nameWord.test(word))
+    && words.every(word => nameWord.test(word) || particle.test(word));
+}
+
+function writerNames(value, bareBy = false) {
   let byline = value.trim();
   // A separated newsroom affiliation identifies neither a second author nor an origin.
   byline = byline.replace(/\s+[-–—]\s+[^\n<>]+$/, '');
   byline = byline.replace(new RegExp(`,\\s*[^,\\n<>]{1,80}\\b${NEWSROOM_ENDING}$`, 'i'), '');
   byline = byline.replace(new RegExp(`\\s+(?:of|for)\\s+[^\\n<>]{1,80}\\b${NEWSROOM_ENDING}$`, 'i'), '');
   byline = byline.replace(/,\s*(?:(?:senior|staff|contributing|freelance|associate)\s+)?(?:reporter|journalist|writer)\b.*$/i, '');
-  return splitWriterList(byline);
+  const names = splitWriterList(byline);
+  return bareBy && !names.every(looksLikeBareByline) ? [] : names;
 }
 
 function splitWriterList(value) {
@@ -88,21 +104,23 @@ function makeRecord(name, raw, location, source) {
   return record;
 }
 
-function addClaim(claims, field, value, raw, location, source) {
-  const names = field === 'writer' ? writerNames(value) : [cleanName(value)];
-  if (!names.length || names.some(name => !name)) return;
+function addClaim(claims, field, value, raw, location, source, bareBy = false) {
+  const names = field === 'writer' ? writerNames(value, bareBy) : [cleanName(value)];
+  if (!names.length || names.some(name => !name)) return false;
   const evidence = names.map(name => makeRecord(name, raw, location, source));
   claims[field].push({names, evidence, source});
+  return true;
 }
 
 function parseLine(claims, raw, location, source) {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > MAX_LINE_LENGTH) return;
   const line = raw.trim();
 
-  const inline = line.match(/^([^|<>.!?]{1,80}?)\s*\|\s*(?:By|Written by|Reported by|Story by)\s*:?[ \t]+(.+)$/i);
+  const inline = line.match(/^([^|<>.!?]{1,80}?)\s*\|\s*(By|Written by|Reported by|Story by)\s*:?[ \t]+(.+)$/i);
   if (inline) {
-    addClaim(claims, 'host', inline[1], raw, location, source);
-    addClaim(claims, 'writer', inline[2], raw, location, source);
+    if (addClaim(claims, 'writer', inline[3], raw, location, source, inline[2].toLowerCase() === 'by')) {
+      addClaim(claims, 'host', inline[1], raw, location, source);
+    }
     return;
   }
 
@@ -112,8 +130,13 @@ function parseLine(claims, raw, location, source) {
     return;
   }
 
+  const writer = line.match(/^(by|written by|reported by|story by|author)\s*:?\s+(.+)$/i);
+  if (writer) {
+    addClaim(claims, 'writer', writer[2], raw, location, source, writer[1].toLowerCase() === 'by');
+    return;
+  }
+
   const patterns = [
-    ['writer', /^(?:by|written by|reported by|story by|author)\s*:?\s+(.+)$/i],
     ['host', /^(?:publication|published by|hosting publication)\s*:\s*(.+)$/i],
     ['origin', /^(?:(?:this (?:article|story|piece) (?:was|is) )?originally published (?:by|in|on)|originating publication|republished (?:from|courtesy of))\s*:?\s+(.+)$/i],
   ];

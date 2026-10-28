@@ -4,6 +4,95 @@ import {analyzeCapture, extractPasted, safeUrl} from '../credit-engine.mjs';
 
 const names = field => field.evidence.map(item => item.name);
 
+const textInputs = text => [
+  extractPasted(text),
+  analyzeCapture({selection: text, visibleLines: []}),
+  analyzeCapture({visibleLines: [{text, where: 'Article body', line: 7}]}),
+];
+
+test('ordinary By-prefix prose is not evidence of a writer in any text source', () => {
+  for (const text of [
+    'By Friday we expect rainfall.',
+    'By the time you read this, the storm will have passed.',
+    'By all accounts the launch went well.',
+    'By working together, the team finished early.',
+    'By comparison, rainfall has decreased.',
+    'By Jane Doe we mean the fictional character, not a writer.',
+    'By 2026 the project had expanded.',
+    'By Friday',
+    'By Friday Morning',
+    'By tomorrow',
+    'By noon.',
+    'By Jane Doe and the rest of the team we will be ready.',
+  ]) {
+    for (const result of textInputs(text)) {
+      assert.equal(result.writer.status, 'unknown', text);
+      assert.deepEqual(result.writer.evidence, [], text);
+    }
+  }
+});
+
+test('bare bylines preserve Unicode, initials, particles and multiple authors', () => {
+  for (const [text, expected] of [
+    ['By María del Carmen García', ['María del Carmen García']],
+    ['By Jose\u0301 A\u0301lvarez', ['Jose\u0301 A\u0301lvarez']],
+    ['By Nguyễn Thị Minh Khai', ['Nguyễn Thị Minh Khai']],
+    ['By 李明', ['李明']],
+    ['By محمد علي', ['محمد علي']],
+    ['By J. R. R. Tolkien', ['J. R. R. Tolkien']],
+    ['By J.R.R. Tolkien', ['J.R.R. Tolkien']],
+    ['By Ludwig van Beethoven', ['Ludwig van Beethoven']],
+    ['By Jean-Luc Picard and Siobhán O’Connor', ['Jean-Luc Picard', 'Siobhán O’Connor']],
+    ['By Fatima al-Hassan & Alexandre d’Artagnan', ['Fatima al-Hassan', 'Alexandre d’Artagnan']],
+    ['By May Chen', ['May Chen']],
+    ['By The Associated Press', ['The Associated Press']],
+    ['By Jane Doe (https://example.org/jane).', ['Jane Doe']],
+    ['By Darius Tahir - KFF Health News', ['Darius Tahir']],
+  ]) {
+    for (const result of textInputs(text)) {
+      assert.equal(result.writer.status, 'credited', text);
+      assert.deepEqual(names(result.writer), expected, text);
+      assert.ok(result.writer.evidence.every(item => item.evidence === text));
+    }
+  }
+});
+
+test('more explicit writer labels retain literal names including lowercase styling', () => {
+  for (const label of ['Written by', 'Reported by', 'Story by', 'Author:']) {
+    for (const result of textInputs(`${label} bell hooks`)) {
+      assert.equal(result.writer.status, 'credited');
+      assert.deepEqual(names(result.writer), ['bell hooks']);
+    }
+  }
+});
+
+test('ambiguous inline By text cannot invent a writer or host', () => {
+  for (const result of textInputs('Harbor Daily | By Friday we expect rainfall.')) {
+    assert.equal(result.writer.status, 'unknown');
+    assert.equal(result.host.status, 'unknown');
+  }
+});
+
+test('discarded prose does not erase or manufacture independent credit conflicts', () => {
+  const prose = 'By Friday we expect rainfall.';
+  const explicit = extractPasted(`${prose}\nBy Maya Chen\nStory by Jordan Ellis`);
+  assert.equal(explicit.writer.status, 'conflict');
+  assert.deepEqual(names(explicit.writer), ['Maya Chen', 'Jordan Ellis']);
+  const metadata = analyzeCapture({
+    selection: prose,
+    metadataAuthors: [{name: 'Maya Chen', where: 'Article metadata'}],
+  });
+  assert.equal(metadata.writer.status, 'metadata');
+  assert.deepEqual(names(metadata.writer), ['Maya Chen']);
+  const mixed = analyzeCapture({
+    selection: prose,
+    visibleLines: [{text: 'Reported by Maya Chen', where: 'Article byline'}],
+    metadataAuthors: [{name: 'Jordan Ellis', where: 'Article metadata'}],
+  });
+  assert.equal(mixed.writer.status, 'conflict');
+  assert.deepEqual(names(mixed.writer), ['Maya Chen', 'Jordan Ellis']);
+});
+
 test('the WUSF inline credit supports a writer and host, but not an origin', () => {
   const raw = 'WUSF | By Darius Tahir - KFF Health News';
   const result = analyzeCapture({
