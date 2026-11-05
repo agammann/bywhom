@@ -8,16 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const extensionRoot = path.resolve(__dirname, '..');
-const browserCache = path.resolve(extensionRoot, '..', '.playwright-browsers-bywhom');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync(browserCache)) process.env.PLAYWRIGHT_BROWSERS_PATH = browserCache;
-function loadPlaywright() {
-  try { return require('playwright'); } catch (error) {
-    const fallback = process.env.PLAYWRIGHT_MODULE_PATH ||
-      path.resolve(path.dirname(process.execPath), '..', 'node_modules', 'playwright');
-    try { return require(fallback); } catch { throw error; }
-  }
-}
-const { chromium } = loadPlaywright();
+const { chromium, launchOptions, isExternalRequest } = require('./browser-runtime.cjs');
 
 const captureSource = fs.readFileSync(path.join(extensionRoot, 'capture.js'), 'utf8');
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'manifest.json'), 'utf8'));
@@ -105,19 +96,18 @@ async function main() {
   const port = server.address().port;
   const base = `http://127.0.0.1:${port}`;
 
-  context = await chromium.launchPersistentContext(path.join(qaRoot, 'profile'), {
-    channel: 'chromium', headless: true, chromiumSandbox: true,
+  context = await chromium.launchPersistentContext(path.join(qaRoot, 'profile'), launchOptions({
     viewport: { width: 1180, height: 850 },
     args: [
       `--disable-extensions-except=${extensionRoot}`,
       `--load-extension=${extensionRoot}`,
     ],
-  });
+  }));
   context.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   context.on('requestfailed', (request) => failedRequests.push(`${request.url()} ${request.failure()?.errorText || ''}`));
   context.on('request', (request) => {
     const url = request.url();
-    if (!url.startsWith(base) && !url.startsWith('chrome-extension://') && !url.startsWith('data:')) externalRequests.push(url);
+    if (isExternalRequest(url, base)) externalRequests.push(url);
   });
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent('serviceworker', { timeout: 15000 });

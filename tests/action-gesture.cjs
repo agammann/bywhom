@@ -1,5 +1,5 @@
 // Exercises ByWhom's real MV3 action through Chromium's browser-level
-// Extensions.triggerAction DevTools command. Never loads normal Chrome.
+// Extensions.triggerAction DevTools command in a disposable browser profile.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -7,16 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const extensionRoot = path.resolve(__dirname, '..');
-const browserCache = path.resolve(extensionRoot, '..', '.playwright-browsers-bywhom');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync(browserCache)) process.env.PLAYWRIGHT_BROWSERS_PATH = browserCache;
-function loadPlaywright() {
-  try { return require('playwright'); } catch (error) {
-    const fallback = process.env.PLAYWRIGHT_MODULE_PATH ||
-      path.resolve(path.dirname(process.execPath), '..', 'node_modules', 'playwright');
-    try { return require(fallback); } catch { throw error; }
-  }
-}
-const { chromium } = loadPlaywright();
+const { chromium, launchOptions, isExternalRequest } = require('./browser-runtime.cjs');
 
 const qaRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bywhom-action-gesture-'));
 const errors = [];
@@ -93,18 +84,17 @@ async function main() {
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  context = await chromium.launchPersistentContext(path.join(qaRoot, 'profile'), {
-    channel: 'chromium', headless: true, chromiumSandbox: true,
+  context = await chromium.launchPersistentContext(path.join(qaRoot, 'profile'), launchOptions({
     args: [
       '--enable-unsafe-extension-debugging',
       `--disable-extensions-except=${extensionRoot}`,
       `--load-extension=${extensionRoot}`,
     ],
-  });
+  }));
   context.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   context.on('request', (request) => {
     const url = request.url();
-    if (!url.startsWith(base) && !url.startsWith('chrome-extension://') && !url.startsWith('data:') && !url.startsWith('chrome://')) externalRequests.push(url);
+    if (isExternalRequest(url, base)) externalRequests.push(url);
   });
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent('serviceworker', { timeout: 15000 });
@@ -156,8 +146,10 @@ async function main() {
       return 'stale on navigation, new page captured only after action';
     });
 
-    await step('restricted chrome page gives paste fallback', async () => {
-      await tab.goto('chrome://settings/');
+    await step('restricted browser page gives paste fallback', async () => {
+      // Unlike the settings SPA, this internal page finishes loading before the
+      // action fires. Edge redirects chrome://version to its edge:// equivalent.
+      await tab.goto('chrome://version/');
       await tab.bringToFront();
       await browserSession.send('Extensions.triggerAction', { id: extensionId, targetId: await targetIdFor(browserSession, tab.url()) });
       const state = await waitState(worker, (item) => item?.kind === 'error');

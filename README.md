@@ -2,7 +2,7 @@
 
 ByWhom is a local, click-to-read credit detective for article pages. Click its toolbar button while viewing an article. Its side panel shows the credited writer, hosting publication, and credited originating publication, with each supported claim tied to an exact page line or metadata value. Missing credit stays **Unknown**; differing claims stay **Conflicting claims**. You can also paste credit lines into the panel when page reading is unavailable.
 
-This is a Manifest V3 proof of concept with Chrome 116 as its manifest minimum. Automated browser checks used Chromium 151.0.7922.34; earlier Chrome versions have not been individually tested. It is not a source-verification service: a byline or metadata field can make a claim without proving identity, ownership, accuracy, or the earliest publication.
+This is a Manifest V3 proof of concept with Chrome 116 as its manifest minimum. The original automated browser checks used Chromium 151.0.7922.34. A November 4, 2026 follow-up passed the capture, panel and real-action harnesses on Edge 156 using an isolated profile. Earlier Chrome versions have not been individually tested. It is not a source-verification service: a byline or metadata field can make a claim without proving identity, ownership, accuracy, or the earliest publication.
 
 ## Try it locally
 
@@ -37,7 +37,7 @@ This first capture is bounded and may miss credits embedded in images, canvas, s
 The extension itself needs no npm package at runtime. To reproduce the developer checks on another machine, install Node.js 20 or later with npm, then run these commands from this folder. `package.json` pins Playwright to the locally verified version, 1.62.1.
 
 ```sh
-npm install
+npm ci
 npm test
 npx playwright install chromium
 npm run test:browser
@@ -45,7 +45,9 @@ npm run test:browser
 
 `npm test` runs the parser, background-worker, and manifest checks. `npm run test:browser` runs the capture regression, panel smoke, and extension-action harnesses in isolated Chromium profiles. Run an individual browser check with `npm run test:capture`, `npm run test:panel`, or `npm run test:action`. Browser checks need an executable Playwright Chromium and operating-system permission to launch it and bind a local loopback test server. They do not install the extension in your regular browser. If you keep Chromium in a custom cache, set `PLAYWRIGHT_BROWSERS_PATH` before running the browser commands.
 
-On the restricted Windows test host, `node --test` can fail while spawning a child process with `EPERM`. The unit files also run directly with `node tests/credit-engine.test.mjs`, `node tests/background.test.cjs`, and `node tests/manifest.test.mjs`; those direct forms passed there. npm and browser installation commands above are for a normal developer environment and were not run as part of this source preparation.
+All three browser harnesses also accept `BYWHOM_BROWSER_CHANNEL=msedge` or `chrome` to use an installed browser in a disposable profile. In PowerShell, set `$env:BYWHOM_BROWSER_CHANNEL = 'msedge'` before `npm run test:browser`. Alternatively, set `BYWHOM_CHROMIUM_PATH` to an executable path; it applies consistently to all three harnesses. The installed browser must support unpacked extensions and the `Extensions.triggerAction` DevTools command for the action check. Unsupported capabilities fail explicitly; the harness does not substitute a simulated action.
+
+The original restricted Windows source-preparation run encountered `EPERM` when spawning some test processes, so its unit files also ran directly. The November 4 follow-up verified `npm ci`, `npm test` and all three browser harnesses with `BYWHOM_BROWSER_CHANNEL=msedge`. This does not retest older Chrome releases or the separately downloaded Chromium executable. Browser-selection and external-request classification checks are included in `npm test`.
 
 The page-capture scenarios are listed in [tests/capture-fixtures.md](tests/capture-fixtures.md). An isolated Chromium test also invoked the real extension action through a browser-level DevTools command and confirmed capture, panel opening, repeat use, navigation reset, and a restricted-page fallback. That is a programmatic action event, **not a human toolbar click**. The [1:09 demo video](https://youtu.be/2dNrmiwtEYA) shows an actual toolbar click and docked side panel on labeled fictional local article pages. A separate [public-article compatibility check](LIVE-PAGE-COMPATIBILITY.md) exercised the action on WUSF, KFF Health News, and University of South Carolina pages, recording exact visible and metadata claims and their remaining disagreement. For a manual check, load this extension **unpacked into an isolated Chrome/Chromium profile**, open an article fixture, highlight text, click the actual toolbar button, inspect the three result cards and their evidence, then navigate or switch tabs and click again. Use the paste fallback on a restricted page.
 
