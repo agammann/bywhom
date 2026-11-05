@@ -6,25 +6,13 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const root = path.resolve(__dirname, '..');
-const browserCache = path.resolve(root, '..', '.playwright-browsers-bywhom');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync(browserCache)) process.env.PLAYWRIGHT_BROWSERS_PATH = browserCache;
-function loadPlaywright() {
-  try { return require('playwright'); } catch (error) {
-    const fallback = process.env.PLAYWRIGHT_MODULE_PATH ||
-      path.resolve(path.dirname(process.execPath), '..', 'node_modules', 'playwright');
-    try { return require(fallback); } catch { throw error; }
-  }
-}
-const { chromium } = loadPlaywright();
+const { chromium, launchOptions } = require('./browser-runtime.cjs');
 const capture = fs.readFileSync(path.join(root, 'capture.js'), 'utf8');
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'related-cards.html'), 'utf8');
 
 (async () => {
   const { analyzeCapture } = await import(pathToFileURL(path.join(root, 'credit-engine.mjs')).href);
-  const browser = await chromium.launch({
-    channel: 'chromium', headless: true, chromiumSandbox: true,
-    ...(process.env.BYWHOM_CHROMIUM_PATH ? { executablePath: process.env.BYWHOM_CHROMIUM_PATH } : {}),
-  });
+  const browser = await chromium.launch(launchOptions());
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.setContent(fixture);
