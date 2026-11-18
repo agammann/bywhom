@@ -59,6 +59,12 @@ function showEvidence(role, trigger) {
 }
 
 function render(result, contextUrl = null) {
+  const evidenceDialog = $('evidence-dialog');
+  const evidenceWasOpen = evidenceDialog.open;
+  lastEvidenceTrigger = null;
+  if (evidenceWasOpen) evidenceDialog.close();
+  $('evidence-title').textContent = 'Evidence';
+  $('evidence-content').replaceChildren();
   currentResult = result;
   const cards = $('cards');
   cards.replaceChildren();
@@ -102,6 +108,7 @@ function render(result, contextUrl = null) {
     const url = safeUrl(contextUrl);
     if (url) trail.append(element('p', `User-supplied page context: ${new URL(url).hostname} (unverified; not used as a credit)`));
   }
+  if (evidenceWasOpen) $('findings-title').focus();
 }
 
 function setPhase(phase) {
