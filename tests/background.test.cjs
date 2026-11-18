@@ -7,12 +7,12 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function harness(executeScript) {
+function harness(executeScript, openPanel = () => Promise.resolve()) {
   const events = {};
   const calls = [];
   const chrome = {
     action: { onClicked: { addListener: (fn) => { events.click = fn; } } },
-    sidePanel: { open: (options) => { calls.push(['open', options]); return Promise.resolve(); } },
+    sidePanel: { open: (options) => { calls.push(['open', options]); return openPanel(options); } },
     scripting: { executeScript: (options) => { calls.push(['executeScript', options]); return executeScript(options); } },
     tabs: {
       onUpdated: { addListener: (fn) => { events.updated = fn; } },
@@ -34,14 +34,37 @@ function harness(executeScript) {
 }
 
 test('only the action click injects, and capture starts before opening the panel', async () => {
-  const h = harness(() => Promise.resolve([{ result: { url: 'https://example.org/story', visibleLines: [] } }]));
+  let finishOpening;
+  const h = harness(
+    () => Promise.resolve([{ result: { url: 'https://example.org/story', visibleLines: [] } }]),
+    () => new Promise((resolve) => { finishOpening = resolve; }),
+  );
   assert.equal(h.calls.length, 0);
   h.events.click({ id: 3, windowId: 8, url: 'https://example.org/story' });
   assert.deepEqual(h.calls.slice(0, 3).map(([name]) => name), ['message', 'executeScript', 'open']);
   assert.equal(h.calls[1][1].target.tabId, 3);
   assert.deepEqual(Array.from(h.calls[1][1].files), ['capture.js']);
   await flush();
+  assert.equal(h.readState().kind, 'reading');
+  finishOpening();
+  await flush();
   assert.equal(h.readState().kind, 'ready');
+});
+
+test('a capture that finishes after a failed panel open is discarded', async () => {
+  let finishCapture;
+  const h = harness(
+    () => new Promise((resolve) => { finishCapture = resolve; }),
+    () => Promise.reject(new Error('Panel could not open')),
+  );
+  h.events.click({ id: 3, windowId: 8, url: 'https://example.org/story' });
+  await flush();
+  finishCapture([{ result: { url: 'https://example.org/story', visibleLines: [] } }]);
+  await flush();
+  assert.equal(h.readState().kind, 'error');
+  assert.equal(h.readState().capture, null);
+  assert.match(h.readState().message, /side panel could not open/);
+  assert.equal(h.calls.some(([name, payload]) => name === 'message' && payload.state.kind === 'ready'), false);
 });
 
 test('navigation clears old capture without rereading', async () => {

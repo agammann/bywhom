@@ -234,11 +234,16 @@ async function main() {
 
   await step('stale-state panel rendering simulation', async () => {
     await sendState(worker, panel, { kind: 'ready', capture: wusfCapture, message: 'Page read at your request.' });
+    await creditCard(panel, 'writer').getByRole('button', { name: 'Show evidence' }).click();
+    assert.match(await panel.locator('#evidence-content').innerText(), /By Darius Tahir/);
     await fixturePage.goto(`${base}/second`);
     await sendState(worker, panel, { kind: 'stale', capture: null, message: 'The page changed. Click the toolbar button again.' });
     assert.match(await panel.locator('#result-summary').innerText(), /Previous results were cleared/);
     assert.match(await creditCard(panel, 'writer').innerText(), /Unknown/);
-    return 'panel clears when worker publishes stale; real navigation event not exercised';
+    assert.equal(await panel.locator('#evidence-dialog').evaluate((dialog) => dialog.open), false);
+    assert.equal(await panel.locator('#evidence-content').textContent(), '');
+    assert.equal(await panel.evaluate(() => document.activeElement?.id), 'findings-title');
+    return 'panel and open evidence clear when the worker publishes stale';
   });
 
   await step('320 and 390 pixel panel layout', async () => {

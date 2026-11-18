@@ -39,23 +39,18 @@ chrome.action.onClicked.addListener((tab) => {
     ? chrome.sidePanel.open({ windowId })
     : Promise.reject(new Error('missing-window'));
 
-  open.catch(() => {
-    if (invocation === generation) {
-      setState({ kind: 'error', capture: null, tabId, pageLabel, message: 'The side panel could not open. Try the toolbar button again.' });
-    }
-  });
-
-  capture.then((entries) => {
+  Promise.allSettled([capture, open]).then(([page, panel]) => {
     if (invocation !== generation) return;
-    const captured = entries?.[0]?.result;
+    if (panel.status === 'rejected') {
+      setState({ kind: 'error', capture: null, tabId, pageLabel, message: 'The side panel could not open. Try the toolbar button again.' });
+      return;
+    }
+    const captured = page.status === 'fulfilled' ? page.value?.[0]?.result : null;
     if (!captured || typeof captured !== 'object' || !Array.isArray(captured.visibleLines)) {
-      throw new Error('invalid-capture');
+      setState({ kind: 'error', capture: null, tabId, pageLabel, message: 'This page could not be read. You can paste its visible credit lines below.' });
+      return;
     }
     setState({ kind: 'ready', capture: captured, tabId, pageLabel: captured.url || pageLabel, message: 'Page read at your request.' });
-  }).catch(() => {
-    if (invocation === generation) {
-      setState({ kind: 'error', capture: null, tabId, pageLabel, message: 'This page could not be read. You can paste its visible credit lines below.' });
-    }
   });
 });
 
